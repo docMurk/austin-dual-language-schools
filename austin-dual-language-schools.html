@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Austin ISD Dual Language Elementary Schools Map</title>
+    <!-- Leaflet CSS - multiple CDN fallbacks -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
+    <!-- Leaflet JS - try unpkg first, then cdnjs fallback -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        if (typeof L === 'undefined') {
+            document.write('<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"><\/script>');
+        }
+    </script>
+    <script>
+        if (typeof L === 'undefined') {
+            document.write('<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.min.js"><\/script>');
+        }
+    </script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        #map { height: 100vh; width: 100%; }
+
+        .legend {
+            background: white;
+            padding: 14px 18px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+            font-size: 13px;
+            line-height: 1.6;
+            max-width: 280px;
+        }
+        .legend h4 {
+            margin-bottom: 8px;
+            font-size: 14px;
+            color: #333;
+            border-bottom: 1px solid #ddd;
+            padding-bottom: 6px;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 4px;
+        }
+        .legend-color {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            margin-right: 8px;
+            border: 2px solid rgba(0,0,0,0.3);
+            flex-shrink: 0;
+        }
+        .legend-sources {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid #ddd;
+            font-size: 11px;
+            color: #666;
+        }
+        .legend-sources strong { color: #333; }
+
+        .title-bar {
+            position: absolute;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 1000;
+            background: rgba(255,255,255,0.95);
+            padding: 10px 24px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+            text-align: center;
+        }
+        .title-bar h1 {
+            font-size: 18px;
+            color: #1a3a5c;
+            margin-bottom: 2px;
+        }
+        .title-bar p {
+            font-size: 12px;
+            color: #666;
+        }
+
+        .school-popup h3 {
+            color: #1a3a5c;
+            margin-bottom: 6px;
+            font-size: 15px;
+        }
+        .school-popup .program {
+            color: #2e7d32;
+            font-size: 12px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+        .school-popup table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+        .school-popup table td {
+            padding: 3px 6px;
+            border-bottom: 1px solid #eee;
+        }
+        .school-popup table td:first-child {
+            font-weight: 600;
+            color: #555;
+            white-space: nowrap;
+        }
+        .school-popup .ratings-row {
+            display: flex;
+            gap: 8px;
+            margin: 8px 0;
+        }
+        .school-popup .rating-badge {
+            display: inline-flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+        .school-popup .rating-badge .value {
+            font-size: 16px;
+            font-weight: 700;
+        }
+        .school-popup .rating-badge.gs { background: #e3f2fd; color: #1565c0; }
+        .school-popup .rating-badge.niche { background: #fce4ec; color: #c62828; }
+        .school-popup .rating-badge.tea { background: #e8f5e9; color: #2e7d32; }
+        .school-popup .address {
+            font-size: 12px;
+            color: #777;
+            margin-top: 6px;
+            font-style: italic;
+        }
+        .school-popup .estimate-note {
+            font-size: 10px;
+            color: #999;
+            margin-top: 4px;
+        }
+        .school-label {
+            background: rgba(255,255,255,0.30) !important;
+            border: 1px solid rgba(0,0,0,0.12) !important;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.08) !important;
+            font-size: 11px;
+            font-weight: 700;
+            white-space: nowrap;
+            text-shadow: 1px 1px 2px white, -1px -1px 2px white, 1px -1px 2px white, -1px 1px 2px white;
+            color: #333;
+            padding: 3px 7px !important;
+            border-radius: 4px;
+        }
+        .school-label::before {
+            border-top-color: rgba(255,255,255,0.30) !important;
+        }
+    </style>
+</head>
+<body>
+    <div id="map"></div>
+    <div class="title-bar">
+        <h1>Austin ISD Dual Language Elementary Schools</h1>
+        <p>Spanish/English programs near 3202 Nancy Gale Dr</p>
+    </div>
+
+    <script>
+        // Check Leaflet loaded
+        if (typeof L === 'undefined') {
+            document.getElementById('map').innerHTML = '<div style="padding:40px;text-align:center;font-family:sans-serif;">' +
+                '<h2 style="color:#c62828;">Leaflet library failed to load</h2>' +
+                '<p>Please check your internet connection and refresh the page.</p>' +
+                '<p style="color:#666;font-size:13px;">The map requires the Leaflet.js library from a CDN.</p></div>';
+            throw new Error('Leaflet (L) not loaded from any CDN');
+        }
+
+        // Initialize map
+        const map = L.map('map', { zoomControl: true });
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+            maxZoom: 18
+        }).addTo(map);
+
+        // Home location: 3202 Nancy Gale Dr, Austin, TX 78735 (Barton View neighborhood)
+        const home = { lat: 30.2385, lng: -97.8095 };
+
+        // Home marker
+        const homeIcon = L.divIcon({
+            html: `<svg width="32" height="40" viewBox="0 0 32 40" xmlns="http://www.w3.org/2000/svg">
+                <path d="M16 0C7.16 0 0 7.16 0 16c0 12 16 24 16 24s16-12 16-24C32 7.16 24.84 0 16 0z" fill="#1565c0"/>
+                <circle cx="16" cy="15" r="8" fill="white"/>
+                <path d="M16 9l-6 5v6h4v-4h4v4h4v-6z" fill="#1565c0"/>
+            </svg>`,
+            iconSize: [32, 40],
+            iconAnchor: [16, 40],
+            popupAnchor: [0, -40],
+            className: ''
+        });
+        L.marker([home.lat, home.lng], { icon: homeIcon })
+            .addTo(map)
+            .bindPopup('<strong>Home</strong><br>3202 Nancy Gale Dr<br>Austin, TX 78735');
+
+        // School data — 15 Dual Language (Spanish/English) elementary schools
+        const schools = [
+            {
+                name: "Casey Elementary School",
+                lat: 30.1790, lng: -97.8280,
+                address: "9400 Texas Oaks Dr, Austin, TX 78748",
+                grades: "PK-5",
+                gs: 6, niche: "B", tea: "N/A",
+                teaNote: "TEA rating not yet confirmed",
+                enrollment: 519,
+                color: "yellow"
+            },
+            {
+                name: "Galindo Elementary School",
+                lat: 30.2295, lng: -97.7719,
+                address: "3800 S. 2nd St, Austin, TX 78704",
+                grades: "PK-5",
+                gs: 3, niche: "C+", tea: "C (77)",
+                teaNote: "",
+                enrollment: 449,
+                color: "red"
+            },
+            {
+                name: "Houston Elementary School",
+                lat: 30.2300, lng: -97.7320,
+                address: "5409 Ponciana Dr, Austin, TX 78744",
+                grades: "PK-5",
+                gs: 2, niche: "C+", tea: "N/A",
+                teaNote: "TEA rating not yet confirmed",
+                enrollment: 501,
+                color: "red"
+            },
+            {
+                name: "Joslin Elementary School",
+                lat: 30.2210, lng: -97.7903,
+                address: "4500 Manchaca Rd, Austin, TX 78745",
+                grades: "PK-5",
+                gs: 6, niche: "B+", tea: "B (87)",
+                teaNote: "",
+                enrollment: 291,
+                color: "green"
+            },
+            {
+                name: "Kocurek Elementary School",
+                lat: 30.1720, lng: -97.8100,
+                address: "9800 Curlew Dr, Austin, TX 78748",
+                grades: "PK-5",
+                gs: 4, niche: "B", tea: "N/A",
+                teaNote: "TEA rating not yet confirmed",
+                enrollment: 502,
+                color: "yellow"
+            },
+            {
+                name: "Langford Elementary School",
+                lat: 30.1950, lng: -97.7350,
+                address: "7601 Dixie Dr, Austin, TX 78744",
+                grades: "PK-6",
+                gs: 1, niche: "C", tea: "C",
+                teaNote: "Improved from F to C in 2025",
+                enrollment: 456,
+                color: "red"
+            },
+            {
+                name: "Linder Elementary School",
+                lat: 30.2650, lng: -97.7050,
+                address: "2801 Metcalfe Rd, Austin, TX 78741",
+                grades: "PK-5",
+                gs: 2, niche: "C+", tea: "F",
+                teaNote: "",
+                enrollment: 514,
+                color: "red"
+            },
+            {
+                name: "Oak Hill Elementary School",
+                lat: 30.2528, lng: -97.8687,
+                address: "6101 Patton Ranch Rd, Austin, TX 78735",
+                grades: "PK-5",
+                gs: 7, niche: "B+", tea: "D (69)",
+                teaNote: "",
+                enrollment: 680,
+                color: "yellow"
+            },
+            {
+                name: "Odom Elementary School",
+                lat: 30.2098, lng: -97.7956,
+                address: "1010 Turtle Creek Blvd, Austin, TX 78745",
+                grades: "PK-5",
+                gs: 5, niche: "C+", tea: "D (62)",
+                teaNote: "",
+                enrollment: 310,
+                color: "red"
+            },
+            {
+                name: "Pleasant Hill Elementary School",
+                lat: 30.2070, lng: -97.8063,
+                address: "6405 Circle S Rd, Austin, TX 78745",
+                grades: "PK-5",
+                gs: 5, niche: "C+", tea: "D (68)",
+                teaNote: "",
+                enrollment: 381,
+                color: "red"
+            },
+            {
+                name: "Rodriguez Elementary School",
+                lat: 30.2000, lng: -97.7700,
+                address: "4400 Franklin Park Dr, Austin, TX 78744",
+                grades: "PK-5",
+                gs: 5, niche: "B-", tea: "N/A",
+                teaNote: "TEA rating not yet confirmed",
+                enrollment: 352,
+                color: "yellow"
+            },
+            {
+                name: "S\u00e1nchez Elementary School",
+                lat: 30.2580, lng: -97.7290,
+                address: "73 San Marcos St, Austin, TX 78702",
+                grades: "PK-5",
+                gs: 2, niche: "C", tea: "F",
+                teaNote: "",
+                enrollment: 479,
+                color: "red"
+            },
+            {
+                name: "St. Elmo Elementary School",
+                lat: 30.2205, lng: -97.7748,
+                address: "600 W St Elmo Rd, Austin, TX 78745",
+                grades: "PK-5",
+                gs: 4, niche: "B-", tea: "C (74)",
+                teaNote: "",
+                enrollment: 300,
+                color: "yellow"
+            },
+            {
+                name: "Travis Heights Elementary School",
+                lat: 30.2415, lng: -97.7530,
+                address: "2010 Alameda Dr, Austin, TX 78704",
+                grades: "PK-5",
+                gs: 7, niche: "B+", tea: "B (85)",
+                teaNote: "",
+                enrollment: 460,
+                color: "green"
+            },
+            {
+                name: "Williams Elementary School",
+                lat: 30.1868, lng: -97.8182,
+                address: "500 Mairo St, Austin, TX 78748",
+                grades: "PK-5",
+                gs: 7, niche: "B-", tea: "C (77)",
+                teaNote: "",
+                enrollment: 378,
+                color: "yellow"
+            }
+        ];
+
+        // Color definitions
+        const colors = {
+            green:  { fill: '#2e7d32', border: '#1b5e20', label: 'Strong' },
+            yellow: { fill: '#f9a825', border: '#f57f17', label: 'Mixed' },
+            red:    { fill: '#c62828', border: '#8e0000', label: 'Lower' }
+        };
+
+        // Helper: calculate distance in miles using Haversine
+        function distanceMiles(lat1, lon1, lat2, lon2) {
+            const R = 3958.8; // Earth's radius in miles
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLon = (lon2 - lon1) * Math.PI / 180;
+            const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                      Math.sin(dLon/2) * Math.sin(dLon/2);
+            return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+        }
+
+        // Create school markers
+        const allMarkers = [L.latLng(home.lat, home.lng)];
+
+        schools.forEach(school => {
+            const dist = distanceMiles(home.lat, home.lng, school.lat, school.lng).toFixed(1);
+            const c = colors[school.color];
+
+            // Custom colored marker icon
+            const markerIcon = L.divIcon({
+                html: `<svg width="28" height="36" viewBox="0 0 28 36" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M14 0C6.27 0 0 6.27 0 14c0 10.5 14 22 14 22s14-11.5 14-22C28 6.27 21.73 0 14 0z" fill="${c.fill}" stroke="${c.border}" stroke-width="1"/>
+                    <circle cx="14" cy="13" r="7" fill="white"/>
+                    <text x="14" y="16" text-anchor="middle" font-size="9" font-weight="bold" fill="${c.fill}">${school.gs}</text>
+                </svg>`,
+                iconSize: [28, 36],
+                iconAnchor: [14, 36],
+                popupAnchor: [0, -36],
+                className: ''
+            });
+
+            const marker = L.marker([school.lat, school.lng], { icon: markerIcon }).addTo(map);
+
+            // Popup content
+            const popupContent = `
+                <div class="school-popup" style="min-width: 260px;">
+                    <h3>${school.name}</h3>
+                    <div class="program">Dual Language: Spanish / English</div>
+                    <div class="ratings-row">
+                        <div class="rating-badge gs">
+                            <span class="value">${school.gs}/10</span>
+                            GreatSchools
+                        </div>
+                        <div class="rating-badge niche">
+                            <span class="value">${school.niche}</span>
+                            Niche
+                        </div>
+                        <div class="rating-badge tea">
+                            <span class="value">${school.tea}</span>
+                            TEA
+                        </div>
+                    </div>
+                    <table>
+                        <tr><td>Grades</td><td>${school.grades}</td></tr>
+                        <tr><td>Distance</td><td>${dist} miles from home</td></tr>
+                        <tr><td>Enrollment</td><td>~${school.enrollment} students</td></tr>
+                        <tr><td>Quality</td><td style="color:${c.fill}; font-weight:600;">${c.label} ratings overall</td></tr>
+                    </table>
+                    <div class="address">${school.address}</div>
+                    ${school.teaNote ? '<div class="estimate-note">' + school.teaNote + '</div>' : ''}
+                </div>
+            `;
+            marker.bindPopup(popupContent, { maxWidth: 320 });
+
+            // Tooltip label with ratings summary
+            const labelText = `GS:${school.gs} | ${school.niche} | TEA:${school.tea}`;
+            marker.bindTooltip(
+                `<div style="font-weight:700; font-size:11px;">${school.name.replace(' Elementary School', '')}</div>
+                 <div style="font-size:10px; color:#555;">${labelText}</div>`,
+                {
+                    permanent: true,
+                    direction: 'top',
+                    offset: [0, -38],
+                    className: 'school-label'
+                }
+            );
+
+            allMarkers.push(L.latLng(school.lat, school.lng));
+        });
+
+        // Fit bounds to show all markers with padding
+        const bounds = L.latLngBounds(allMarkers);
+        map.fitBounds(bounds, { padding: [60, 60] });
+
+        // Legend control
+        const legend = L.control({ position: 'bottomright' });
+        legend.onAdd = function() {
+            const div = L.DomUtil.create('div', 'legend');
+            div.innerHTML = `
+                <h4>Pin Color Legend</h4>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: ${colors.green.fill}"></div>
+                    <span><strong>Green</strong> &mdash; Strong ratings (GS 6+, Niche B+ or above, TEA B+)</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: ${colors.yellow.fill}"></div>
+                    <span><strong>Yellow</strong> &mdash; Mixed ratings (some strong, some average)</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: ${colors.red.fill}"></div>
+                    <span><strong>Red</strong> &mdash; Lower ratings (GS below 5 or TEA D/F)</span>
+                </div>
+                <div class="legend-sources">
+                    <strong>Rating Sources:</strong><br>
+                    GS = <a href="https://www.greatschools.org" target="_blank">GreatSchools.org</a> (1-10 scale)<br>
+                    Niche = <a href="https://www.niche.com" target="_blank">Niche.com</a> (A+ to F)<br>
+                    TEA = <a href="https://tea.texas.gov" target="_blank">TX Education Agency</a> (A-F)<br>
+                    <em>N/A = TEA rating not yet confirmed</em><br>
+                    <span style="color:#1565c0;">&#9679;</span> Blue pin = Your home
+                </div>
+            `;
+            return div;
+        };
+        legend.addTo(map);
+    </script>
+</body>
+</html>
